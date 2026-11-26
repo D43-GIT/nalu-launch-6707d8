@@ -266,8 +266,9 @@ h2{font:500 clamp(30px,4.4vw,46px)/1.1 "Cormorant Garamond",Georgia,serif}
         <p class="note">Keep new films coming once the launch is out. This never changes your launch price.</p>
         <div class="radios" role="radiogroup" aria-label="Monthly plan">
           <label class="rad"><input type="radio" name="m" value="0" checked><span class="rcard"><span><b>Not now</b><span>We can add it any time.</span></span><span class="dot" aria-hidden="true"></span></span></label>
-          <label class="rad"><input type="radio" name="m" value="5500"><span class="rcard"><span><b>A$5,500 a month</b><span>Month to month, after a 3-month minimum.</span></span><span class="dot" aria-hidden="true"></span></span></label>
-          <label class="rad"><input type="radio" name="m" value="5000"><span class="rcard"><span><b>A$5,000 a month <span class="best">Best rate</span></b><span>On a 6-month commitment.</span></span><span class="dot" aria-hidden="true"></span></span></label>
+          <label class="rad"><input type="radio" name="m" value="5500"><span class="rcard"><span><b>3 months minimum: A$5,500 a month</b><span>A$16,500 over 3 months.</span></span><span class="dot" aria-hidden="true"></span></span></label>
+          <label class="rad"><input type="radio" name="m" value="4950"><span class="rcard"><span><b>6 months: A$4,950 a month <span class="best">Save A$3,300</span></b><span>A$29,700 over 6 months.</span></span><span class="dot" aria-hidden="true"></span></span></label>
+          <label class="rad"><input type="radio" name="m" value="4750"><span class="rcard"><span><b>12 months: A$4,750 a month <span class="best">Save A$9,000</span></b><span>A$57,000 over 12 months.</span></span><span class="dot" aria-hidden="true"></span></span></label>
         </div>
         <div class="card fixed" style="margin-top:14px">
           <h3>Every month includes</h3>
@@ -278,7 +279,6 @@ h2{font:500 clamp(30px,4.4vw,46px)/1.1 "Cormorant Garamond",Georgia,serif}
             <li><svg class="i" aria-hidden="true"><use href="#check"/></svg>A monthly ad check</li>
           </ul>
         </div>
-        <p class="perk"><svg class="i" aria-hidden="true"><use href="#lock"/></svg><span><b>Launch package plus any monthly plan:</b> 2 extra reels a month and the ad check included. Your monthly price is locked.</span></p>
       </div>
     </div>
 
@@ -409,11 +409,12 @@ h2{font:500 clamp(30px,4.4vw,46px)/1.1 "Cormorant Garamond",Georgia,serif}
     // set final text for non-animating readers
     setTimeout(function(){$('tTotal').textContent=fmt(r.total);$('bTotal').textContent=fmt(r.total)},950);
     var mt=$('tMon'),note=$('monNote');
-    if(r.monthly===5500){mt.textContent='A$5,500 a month';note.textContent='Month to month after a 3-month minimum (A$16,500). Billed on the 1st of each month, in advance.'}
-    else if(r.monthly===5000){mt.textContent='A$5,000 a month';note.textContent='6-month commitment (A$30,000 in all). Billed on the 1st of each month, in advance.'}
+    var MON={5500:['3 months minimum',3,0],4950:['6 months',6,3300],4750:['12 months',12,9000]};
+    var mm=MON[r.monthly];
+    if(mm){mt.textContent=fmt(r.monthly)+' a month, '+mm[0];note.textContent=mm[0]+': '+fmt(r.monthly*mm[1])+' in all'+(mm[2]?' (you save '+fmt(mm[2])+')':'')+'. Same deliverables on every option. Billed on the 1st of each month, in advance.'}
     else{mt.textContent='Not selected';note.textContent='Monthly, if you add it, is billed on the 1st of each month, in advance.'}
     var homes=[];['A','B','H','C'].forEach(function(h){if(s.homes[h])homes.push(h+(s.ext[h]?' (longer rooftop film)':''))});
-    var msg='Hi Brandon, we would like to go ahead with the NALU launch: Complete package + home videos '+homes.join(', ')+'. Launch total '+fmt(r.total)+' incl GST (deposit '+fmt(r.dep)+')'+(r.monthly?'. Monthly: '+fmt(r.monthly)+' a month.':'.');
+    var msg='Hi Brandon, we would like to go ahead with the NALU launch: Complete package + home videos '+homes.join(', ')+'. Launch total '+fmt(r.total)+' incl GST (deposit '+fmt(r.dep)+')'+(r.monthly?'. Monthly: '+fmt(r.monthly)+' a month, '+MON[r.monthly][0]+'.':'.');
     $('wa').href='https://wa.me/61400357305?text='+encodeURIComponent(msg);
   }
   document.querySelectorAll('input[data-home],input[data-ext],input[name=m]').forEach(function(i){i.addEventListener('change',render)});
