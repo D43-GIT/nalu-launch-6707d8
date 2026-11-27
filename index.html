@@ -592,8 +592,8 @@ body{padding-bottom:96px}
       </div>
       <div class="calc-row step-row">
         <div class="step-t"><b>Extra short cuts, per home</b>
-          <small>10 to 15 seconds each, cut from that home's own hero film.</small>
-          <span class="price-tag">+A$350 each</span></div>
+          <small>10 to 15 seconds each, made from footage we already have. Your clips cut together, with a title or a call to action for ads, or none at all and a track made for you.</small>
+          <span class="price-tag">+A$395 each · 3 for A$1,050</span></div>
         <div class="step"><button type="button" id="cutDown" aria-label="One fewer extra short cut">−</button><output id="oCuts" aria-live="polite">0</output><button type="button" id="cutUp" aria-label="One more extra short cut">+</button></div>
       </div>
     </div>
@@ -713,16 +713,19 @@ body{padding-bottom:96px}
 <script>
 (function(){
 /* ---------- quote maths (locked) ---------- */
-var PACK=8950,HOME=3750,EXT=950,CUT=350;   /* CUT is the one new price: PROPOSED 27 Nov 2026 */
+var PACK=8950,HOME=3750,EXT=950,CUT=395,CUT3=1050;  /* the two cut prices: PROPOSED 27 Nov 2026 */
+/* Three cuts come off the same hero film in one sitting, so three together cost less than
+   three on their own: A$1,050 instead of A$1,185. Six are two packs. */
+function cutCost(per){return Math.floor(per/3)*CUT3+(per%3)*CUT}
 var ORDER=['A','B','H','C'],MINH=3,MAXH=6,MAXCUT=4;
 var MON={5500:['3 months minimum',3,0],4950:['6 months',6,3300],4750:['12 months',12,9000]};
 function calc(s){
   var named=0,e=0;
   ORDER.forEach(function(h){ if(s.homes[h]){ named++; if((h==='H'||h==='C')&&s.ext[h]) e++; } });
-  var extra=s.extra||0, n=named+extra, cuts=(s.cuts||0)*n;
-  var total=PACK+HOME*n+EXT*e+CUT*cuts;
+  var extra=s.extra||0, n=named+extra, per=s.cuts||0, cuts=per*n, cutTotal=cutCost(per)*n;
+  var total=PACK+HOME*n+EXT*e+cutTotal;
   return {n:n,named:named,extra:extra,e:e,cuts:cuts,total:total,dep:total/2,bal:total/2,
-          homes:HOME*n,ext:EXT*e,cut:CUT*cuts,monthly:s.monthly||0};
+          homes:HOME*n,ext:EXT*e,cut:cutTotal,packs:Math.floor(per/3)*n,monthly:s.monthly||0};
 }
 window.naluCalc=calc;
 var $=function(id){return document.getElementById(id)};
@@ -763,7 +766,8 @@ function render(){
   $('lExtN').textContent=r.e+(r.e===1?' longer rooftop film':' longer rooftop films')+', '+r.e+' x A$950';
   $('lExt').textContent=fmt(r.ext);
   $('rowCut').classList.toggle('hid',r.cuts===0);
-  $('lCutN').textContent='Extra short cuts, '+r.n+(r.n===1?' home':' homes')+' x '+ST.cuts+' = '+r.cuts+' x A$350';
+  $('lCutN').textContent='Extra short cuts, '+r.cuts+' in all ('+ST.cuts+' per home across '
+    +r.n+(r.n===1?' home':' homes')+')'+(r.packs?', '+r.packs+' x 3-pack':'');
   $('lCut').textContent=fmt(r.cut);
   var sl=$('sHomes');
   sl.value=r.n;sl.style.setProperty('--p',((r.n-MINH)/(MAXH-MINH)*100)+'%');
