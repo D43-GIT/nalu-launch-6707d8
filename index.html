@@ -483,6 +483,17 @@ body{padding-bottom:96px}
 /* (the pill stays hidden until it has been measured; the label colour above covers that moment) */
 @media(max-width:560px){.seg label{font-size:14px;padding:0 10px}}
 @media(max-width:420px){.calc-top output{font-size:34px}.step-row{flex-wrap:wrap}.step{margin-left:auto}}
+/* tap-to-play: only ever seen when the phone has refused to start a video by itself
+   (Low Power Mode does exactly that). 27 Nov 2026. */
+.vplay{position:absolute;z-index:6;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;
+ border-radius:50%;background:rgba(255,250,242,.94);color:var(--ink);display:grid;place-items:center;
+ opacity:0;pointer-events:none;box-shadow:0 16px 36px -14px rgba(70,45,10,.75),0 0 0 1px rgba(201,166,107,.5);
+ transition:opacity 1s var(--e),transform .24s var(--e)}
+.needtap .vplay{opacity:1;pointer-events:auto}
+.vplay:active{transform:scale(.93)}
+.vplay:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.vplay svg{width:24px;height:24px;margin-left:3px;fill:currentColor}
+
 @media (prefers-reduced-motion:reduce){
  .glows i{animation:none}
  .seg-pill,.rng::-webkit-slider-thumb,.calc{transition:none}
@@ -847,7 +858,7 @@ $('cutDown').addEventListener('click',function(){if(ST.cuts>0){ST.cuts--;render(
 
 /* ---------- gallery data ---------- */
 var D={scenes:[["S1-sunset-v3","Sunset","The last light reaches the balconies"],["S2-kitchen-v2-crop","Kitchen","The first coffee"],["S3-living-v2","Living","The room opens to the coast"],["S4-bedroom-cut","Bedroom","Afternoon light across the linen"],["S5-bath","Bath","A quiet moment by the stone bath"]]};
-function vid(src,poster){return '<video muted loop playsinline preload="none" poster="'+poster+'" data-src="'+src+'"></video>'}
+function vid(src,poster){return '<video muted loop playsinline autoplay preload="none" disablepictureinpicture poster="'+poster+'" data-src="'+src+'"></video>'}
 function card(i,src,poster,title,sub,tag,lb){return '<div class="card" style="background-image:url('+poster+')" '+(lb?'data-lb="'+lb+'"':'')+'>'+vid(src,poster)+'<div class="shade"></div><div class="n">'+String(i+1).padStart(2,"0")+'</div>'+(tag?'<div class="tag">'+tag+'</div>':'')+'<div class="cap"><div><b>'+title+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div><span class="go">→</span></div></div>'}
 var R={};
 R.scenes=D.scenes.map(function(s,i){return card(i,"media/warm/"+s[0]+".mp4?v=q1","media/warm/"+s[0]+".jpg",s[1],s[2],"",i)});
@@ -971,9 +982,73 @@ animateOffers.addEventListener("change",scheduleOffers);layoutOffers();
 /* ---------- video loading ---------- */
 var vids=[].slice.call(document.querySelectorAll("video[data-src]"));
 var heroVids=[].slice.call(document.querySelectorAll(".hero video")),pageVids=vids.concat(heroVids);
-var lbOpen=false;
+var lbOpen=false,lbv=document.getElementById("lbv");
 function load(v){if(v.dataset.src&&!v.getAttribute("src")){v.preload="auto";v.src=v.dataset.src}}
-function play(v){var p=v.play();if(p&&p.catch)p.catch(function(){})}
+
+/* ---------- making a video actually start on a phone (27 Nov 2026) ----------
+   iPhone Safari will only start a video by itself when it is muted and inline, and it refuses
+   even then in Low Power Mode. play() hands back a promise, and the old code threw its
+   rejection away, so a video that was refused once stayed still forever. Now: ask properly,
+   wait for frames and ask again, then show a button the reader can tap. */
+function needTap(v,on){
+  var box=v.parentElement;if(!box)return;
+  box.classList.toggle("needtap",!!on);
+  if(on&&!box.querySelector(".vplay")){
+    var b=document.createElement("button");
+    b.type="button";b.className="vplay";b.setAttribute("aria-label","Play this video");
+    b.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l12 7-12 7z"/></svg>';
+    b.addEventListener("click",function(e){e.preventDefault();e.stopPropagation();playAll()});
+    box.appendChild(b);
+  }
+}
+function ready(v){
+  v.muted=true;v.defaultMuted=true;v.setAttribute("muted","");
+  v.playsInline=true;v.setAttribute("playsinline","");v.setAttribute("webkit-playsinline","");
+  v.loop=true;
+}
+function play(v){
+  if(!v||lbOpen&&v!==lbv)return;
+  ready(v);load(v);
+  var p;
+  try{p=v.play()}catch(e){needTap(v,true);return}
+  if(!p||!p.then){needTap(v,false);return}
+  p.then(function(){needTap(v,false)}).catch(function(){
+    /* second go, once there are frames to show */
+    var again=function(){
+      v.removeEventListener("loadeddata",again);
+      var q;try{q=v.play()}catch(e){needTap(v,true);return}
+      if(q&&q.then)q.then(function(){needTap(v,false)}).catch(function(){needTap(v,true)});
+      else needTap(v,false);
+    };
+    if(v.readyState<2){v.addEventListener("loadeddata",again);try{v.load()}catch(e){}}
+    else again();
+  });
+}
+function onScreen(v){
+  var r=v.getBoundingClientRect();
+  return r.bottom>0&&r.top<(window.innerHeight||0)&&r.width>0&&r.height>0;
+}
+function playAll(){
+  pageVids.forEach(function(v){if(onScreen(v))play(v)});
+}
+/* a watchdog, because a refusal can arrive late: anything on screen and still still gets
+   another go, and then the button. */
+function watchdog(){
+  pageVids.forEach(function(v){
+    if(!onScreen(v)||document.hidden||lbOpen)return;
+    if(v.paused)play(v);else needTap(v,false);
+  });
+}
+setTimeout(watchdog,1200);setTimeout(watchdog,3000);setInterval(watchdog,5000);
+/* the first touch or click anywhere is a gesture, and a gesture lifts the block */
+["touchstart","pointerdown","click","keydown"].forEach(function(ev){
+  document.addEventListener(ev,function once(){
+    ["touchstart","pointerdown","click","keydown"].forEach(function(e2){
+      document.removeEventListener(e2,once,true)});
+    playAll();
+  },true);
+});
+document.addEventListener("visibilitychange",function(){if(!document.hidden)setTimeout(playAll,120)});
 if("IntersectionObserver" in window){
  var nearRail=new IntersectionObserver(function(es){es.forEach(function(e){var r=e.target;r.__near=e.isIntersecting;if(r.__near)r.__cards.forEach(function(c){if(c.__hnear)load(c.querySelector("video"))})})},{rootMargin:"900px 0px"});
  [].slice.call(document.querySelectorAll(".rail")).forEach(function(r){
@@ -984,11 +1059,11 @@ if("IntersectionObserver" in window){
  var hero=document.querySelector(".hero");new IntersectionObserver(function(es){hero.classList.toggle("off",!es[0].isIntersecting)}).observe(hero);
  var rv=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");rv.unobserve(e.target)}})},{rootMargin:"0px 0px -8% 0px"});
  [].slice.call(document.querySelectorAll(".reveal")).forEach(function(el){rv.observe(el)});
-}else{vids.forEach(function(v){load(v);play(v)});[].slice.call(document.querySelectorAll(".reveal")).forEach(function(el){el.classList.add("in")})}
+}else{pageVids.forEach(function(v){load(v);play(v)});[].slice.call(document.querySelectorAll(".reveal")).forEach(function(el){el.classList.add("in")})}
 document.addEventListener("visibilitychange",function(){if(document.hidden)pageVids.forEach(function(v){v.pause()})});
 
 /* ---------- lightbox ---------- */
-var lb=document.getElementById("lb"),lbv=document.getElementById("lbv"),lbt=document.getElementById("lbt"),lk="",li=0;
+var lb=document.getElementById("lb"),lbt=document.getElementById("lbt"),lk="",li=0;
 function show(){var it=LB[lk][li];lbv.poster=it.poster;lbv.src=it.src;lbt.textContent=it.t;play(lbv)}
 function openLB(k,i){
  lk=k;li=i;lbOpen=true;pageVids.forEach(v=>v.pause());
